@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shake the Tree</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: "Segoe UI", sans-serif; background: #000; }
+    .screen { display: none; position: fixed; inset: 0; width: 100%; height: 100%; }
+    .screen.active { display: flex; }
+    .bg-cover { position: absolute; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; }
+
+    /* START */
+    #startScreen { align-items: flex-end; justify-content: center; padding-bottom: 8vh; }
+    #startScreen .bg-cover { background-image: url("assets/start.webp"); }
+    #startBtn { position: relative; z-index: 2; padding: 18px 64px; font-size: 1.5rem; font-weight: 800; border: none; border-radius: 50px; background: linear-gradient(135deg,#ffcc00,#ff8800); color: #111; cursor: pointer; box-shadow: 0 6px 24px #0008; letter-spacing: 1px; transition: transform .15s, box-shadow .15s; }
+    #startBtn:hover { transform: translateY(-3px); }
+
+    /* GUIDE */
+    #guideScreen { align-items: flex-end; justify-content: center; padding-bottom: 8vh; }
+    #guideScreen .bg-cover { background-image: url("assets/tree_guide.webp"); }
+    #readyBtn { position: relative; z-index: 2; padding: 18px 64px; font-size: 1.5rem; font-weight: 800; border: none; border-radius: 50px; background: linear-gradient(135deg,#00c853,#00897b); color: #fff; cursor: pointer; box-shadow: 0 6px 24px #0008; letter-spacing: 1px; transition: transform .15s; }
+    #readyBtn:hover { transform: translateY(-3px); }
+    #readyBtn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+    /* COUNTDOWN */
+    #countdownOverlay { display: none; position: fixed; inset: 0; z-index: 200; align-items: center; justify-content: center; background: rgba(0,0,0,.55); }
+    #countdownOverlay.active { display: flex; }
+    #countdownNumber { font-size: clamp(6rem,20vw,14rem); font-weight: 900; color: #fff; text-shadow: 0 0 40px #ffcc00,0 4px 20px #000; animation: popIn .35s ease-out; }
+    @keyframes popIn { from { transform:scale(.4); opacity:0; } to { transform:scale(1); opacity:1; } }
+
+    /* GAME */
+    #gameScreen { flex-direction: column; }
+    #gameBg { background-image: url("assets/game.webp"); z-index: 0; }
+
+    #treeImg {
+      position: absolute;
+      width: min(520px, 80vw);
+      height: auto;
+      left: 50%;
+      top: 50%;
+      transform: translateX(-50%) translateY(-50%);
+      z-index: 4;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    #treeCanvas {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translateX(-50%) translateY(-50%);
+      z-index: 4;
+      pointer-events: none;
+      user-select: none;
+      opacity: 0;
+    }
+
+    #hud {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; pointer-events: none;
+    }
+    #timerBox {
+      display: flex; align-items: center; gap: 8px;
+      background: #1565c0; color: #fff; font-size: 1.3rem; font-weight: 800;
+      padding: 8px 20px; border-radius: 30px; box-shadow: 0 4px 14px #0007; letter-spacing: 1px;
+    }
+    #timerBox.urgent { background: #c62828; animation: pulse .4s infinite alternate; }
+    @keyframes pulse { to { opacity:.6; } }
+
+    #keyHint {
+      background: rgba(0,0,0,.55); color: #fff; font-size: .85rem; font-weight: 700;
+      padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,.25);
+    }
+    #keyHint.active-press { color: #ffd700; border-color: #ffd70077; }
+
+    #scoreBox {
+      position: absolute; bottom: 16px; left: 16px; z-index: 10;
+      background: rgba(0,0,0,.6); color: #ffd700; font-size: 1.4rem; font-weight: 800;
+      padding: 8px 18px; border-radius: 20px; border: 1px solid #ffd70044;
+    }
+
+    /* score-bar */
+    #progressWrap {
+      position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+      height: 8px; background: rgba(255,255,255,.15);
+    }
+    #progressBar { height: 100%; background: linear-gradient(90deg,#ffd700,#ff8800); width: 0%; transition: width .15s; }
+
+    .float-text {
+      position: absolute; font-size: 1.2rem; font-weight: 900; color: #ffd700;
+      text-shadow: 0 2px 8px #000; pointer-events: none;
+      animation: floatUp 1s ease-out forwards; z-index: 20;
+    }
+    @keyframes floatUp { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-60px) scale(1.3)} }
+
+    /* RESULT SCREEN */
+    #resultScreen {
+      flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(160deg,#c9d8f0 0%,#dce8f8 50%,#c9d8f0 100%);
+      z-index: 300; overflow: hidden;
+    }
+    #confettiCanvas { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+    #resultLogo { width: min(180px,44vw); margin-bottom: 24px; position: relative; z-index: 1; }
+    #resultCard {
+      position: relative; z-index: 1; background: #fff; border-radius: 24px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.15); padding: 36px 40px 32px;
+      width: min(360px, 88vw); display: flex; flex-direction: column; align-items: center; gap: 12px;
+      text-align: center;
+    }
+    #resultTitle   { font-size: clamp(2rem,7vw,3rem); font-weight: 900; color: #1a56a0; line-height: 1.1; }
+    #resultSub     { font-size: clamp(1rem,3.5vw,1.25rem); font-weight: 700; color: #1a56a0; }
+    #resultMsg     { font-size: clamp(.85rem,2.5vw,1rem); color: #555; line-height: 1.5; }
+    #giftImg       { width: min(130px,32vw); margin: 6px 0; }
+    #homeBtn {
+      margin-top: 8px; width: 100%; padding: 16px 0; font-size: 1.1rem; font-weight: 800;
+      border: none; border-radius: 50px; background: #1a56a0; color: #fff;
+      cursor: pointer; letter-spacing: 1px; box-shadow: 0 4px 16px rgba(26,86,160,.35);
+      transition: transform .15s, background .15s;
+    }
+    #homeBtn:hover { background: #1565c0; transform: translateY(-2px); }
+  </style>
+</head>
+<body>
+
+<!-- ── START ──────────────────────────────────────── -->
+<div id="startScreen" class="screen active">
+  <div class="bg-cover"></div>
+  <button id="startBtn">START</button>
+</div>
+
+<!-- ── GUIDE ──────────────────────────────────────── -->
+<div id="guideScreen" class="screen">
+  <div class="bg-cover"></div>
+  <button id="readyBtn">I'M READY!</button>
+</div>
+
+<!-- ── COUNTDOWN ──────────────────────────────────── -->
+<div id="countdownOverlay">
+  <div id="countdownNumber">3</div>
+</div>
+
+<!-- ── GAME ───────────────────────────────────────── -->
+<div id="gameScreen" class="screen">
+  <div id="gameBg" class="bg-cover"></div>
+  <img id="treeImg" src="assets/tree.gif" alt="tree" />
+  <canvas id="treeCanvas"></canvas>
+  <div id="hud">
+    <div id="timerBox">&#9203; <span id="timerVal">00:30</span></div>
+    <div id="keyHint">&#9000; Spam any letter key!</div>
+  </div>
+  <div id="scoreBox">&#127807; <span id="scoreVal">0</span></div>
+  <div id="progressWrap"><div id="progressBar"></div></div>
+</div>
+
+<!-- ── RESULT ─────────────────────────────────────── -->
+<div id="resultScreen" class="screen">
+  <canvas id="confettiCanvas"></canvas>
+  <img id="resultLogo" src="assets/logo.webp" alt="logo" />
+  <div id="resultCard">
+    <div id="resultTitle">WINNER!</div>
+    <div id="resultSub">RM 1,000,000</div>
+    <img id="giftImg" src="assets/gift.webp" alt="gift" />
+    <div id="resultMsg">Claim your gift<br>at the registration counter.</div>
+    <button id="homeBtn">HOME</button>
+  </div>
+</div>
+
+<script>
+/* ── CONFIG ───────────────────────────────────── */
+const WIN_SCORE      = 500;   // score needed to win
+const GAME_DURATION  = 30;    // seconds
+const POINTS_PER_KEY = 10;    // score per keypress
+const SHAKE_DECAY    = 0.92;  // shake level decay per frame (~60fps)
+const MAX_SHAKE      = 10;    // max shake level
+
+/* ── STATE ────────────────────────────────────── */
+let score = 0, timeLeft = GAME_DURATION;
+let timerInterval = null, running = false;
+let shakeLevel = 0, isAnimating = false;
+let rafId = null;
+
+/* ── DOM REFS ─────────────────────────────────── */
+const startScreen      = document.getElementById('startScreen');
+const guideScreen      = document.getElementById('guideScreen');
+const countdownOverlay = document.getElementById('countdownOverlay');
+const countdownNumber  = document.getElementById('countdownNumber');
+const gameScreen       = document.getElementById('gameScreen');
+const resultScreen     = document.getElementById('resultScreen');
+const startBtn         = document.getElementById('startBtn');
+const readyBtn         = document.getElementById('readyBtn');
+const homeBtn          = document.getElementById('homeBtn');
+const timerValEl       = document.getElementById('timerVal');
+const timerBox         = document.getElementById('timerBox');
+const scoreValEl       = document.getElementById('scoreVal');
+const progressBar      = document.getElementById('progressBar');
+const keyHint          = document.getElementById('keyHint');
+const treeEl           = document.getElementById('treeImg');
+const treeCanvas       = document.getElementById('treeCanvas');
+const treeCtx          = treeCanvas.getContext('2d');
+const confettiCanvas   = document.getElementById('confettiCanvas');
+const confCtx          = confettiCanvas.getContext('2d');
+
+/* ── SCREEN HELPER ────────────────────────────── */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ── START → GUIDE ────────────────────────────── */
+startBtn.addEventListener('click', () => showScreen('guideScreen'));
+
+/* ── GUIDE → COUNTDOWN → GAME ────────────────── */
+readyBtn.addEventListener('click', () => {
+  readyBtn.disabled = true;
+  runCountdown();
+});
+
+function runCountdown() {
+  showScreen('guideScreen');
+  countdownOverlay.classList.add('active');
+  const steps = ['3', '2', '1', 'GO!'];
+  let i = 0;
+  function step() {
+    countdownNumber.textContent = steps[i];
+    countdownNumber.style.animation = 'none';
+    void countdownNumber.offsetHeight;
+    countdownNumber.style.animation = '';
+    i++;
+    if (i < steps.length) {
+      setTimeout(step, 900);
+    } else {
+      setTimeout(() => {
+        countdownOverlay.classList.remove('active');
+        startGame();
+      }, 700);
+    }
+  }
+  step();
+}
+
+/* ── GAME START ───────────────────────────────── */
+function startGame() {
+  score = 0; timeLeft = GAME_DURATION; running = true;
+  shakeLevel = 0;
+
+  treeEl.classList.remove('shaking');
+  isAnimating = false;
+  treeEl.style.visibility = 'visible';
+  treeCanvas.style.opacity = '0';
+  // Load GIF fresh, then freeze on first frame once loaded
+  treeEl.onload = null;
+  treeEl.src = '';
+  treeEl.src = 'assets/tree.gif';
+  treeEl.onload = () => {
+    treeEl.onload = null;
+    if (running && !isAnimating) {
+      isAnimating = true; // briefly mark animating so freezeTree() runs
+      setTimeout(freezeTree, 80);
+    }
+  };
+
+  timerBox.classList.remove('urgent');
+  updateScore();
+  updateTimer();
+  showScreen('gameScreen');
+
+  setTimeout(() => {
+    timerInterval = setInterval(tickTimer, 1000);
+    rafId = requestAnimationFrame(gameLoop);
+  }, 80);
+}
+
+/* ── KEYBOARD INPUT ───────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (!running) return;
+  if (!/^[a-zA-Z]$/.test(e.key)) return;
+  if (e.repeat) return; // ignore held-key auto-repeat
+
+  // Play GIF and track activity
+  playTree();
+  shakeLevel = MAX_SHAKE; // reset decay timer on each press
+
+  // Score
+  score += POINTS_PER_KEY;
+  updateScore();
+
+  // Flash hint label
+  keyHint.classList.add('active-press');
+  keyHint.textContent = '\u2328 ' + e.key.toUpperCase() + '!';
+  clearTimeout(keyHint._t);
+  keyHint._t = setTimeout(() => {
+    keyHint.classList.remove('active-press');
+    keyHint.textContent = '\u2328 Spam any letter key!';
+  }, 300);
+
+  // Floating score text from center of tree
+  const rect = treeEl.getBoundingClientRect();
+  showFloatingText('+' + POINTS_PER_KEY, rect.left + rect.width / 2, rect.top + 30);
+
+  // Win check
+  if (score >= WIN_SCORE) endGame(true);
+});
+
+/* Freeze GIF: draw current frame to canvas, hide img */
+function freezeTree() {
+  if (!isAnimating) return;
+  const w = treeEl.offsetWidth;
+  const h = treeEl.offsetHeight;
+  if (w === 0 || h === 0) { isAnimating = false; return; }
+  treeCanvas.width  = w;
+  treeCanvas.height = h;
+  treeCanvas.style.width  = w + 'px';
+  treeCanvas.style.height = h + 'px';
+  try { treeCtx.drawImage(treeEl, 0, 0, w, h); } catch(e) {}
+  treeEl.style.visibility = 'hidden';
+  treeCanvas.style.opacity = '1';
+  isAnimating = false;
+}
+
+/* Unfreeze: hide canvas, show live GIF — only restart src when coming from frozen state */
+function playTree() {
+  if (isAnimating) return; // already playing, don't interrupt the GIF
+  treeCanvas.style.opacity = '0';
+  treeEl.style.visibility = 'visible';
+  // Reload src only once to start the animation from the beginning
+  treeEl.src = '';
+  treeEl.src = 'assets/tree.gif';
+  isAnimating = true;
+}
+
+/* ── GAME LOOP ────────────────────────────────── */
+function gameLoop() {
+  if (!running) return;
+
+  // Decay activity timer — freeze GIF when user stops pressing
+  if (shakeLevel > 0) {
+    shakeLevel *= SHAKE_DECAY;
+    if (shakeLevel < 0.3) { shakeLevel = 0; freezeTree(); }
+  }
+
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+/* ── TIMER ────────────────────────────────────── */
+function tickTimer() {
+  timeLeft--;
+  updateTimer();
+  if (timeLeft <= 0) endGame(false);
+}
+
+function updateTimer() {
+  timerValEl.textContent = '00:' + String(timeLeft).padStart(2, '0');
+  if (timeLeft <= 10) timerBox.classList.add('urgent');
+}
+
+function updateScore() {
+  scoreValEl.textContent = score.toLocaleString();
+  const pct = Math.min((score / WIN_SCORE) * 100, 100);
+  progressBar.style.width = pct + '%';
+}
+
+/* ── FLOATING TEXT ────────────────────────────── */
+function showFloatingText(text, x, y) {
+  const el = document.createElement('div');
+  el.className = 'float-text';
+  el.textContent = text;
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  gameScreen.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+}
+
+/* ── END GAME ─────────────────────────────────── */
+function endGame(winner) {
+  if (!running) return;
+  running = false;
+  clearInterval(timerInterval);
+  if (rafId) cancelAnimationFrame(rafId);
+
+  const titleEl = document.getElementById('resultTitle');
+  const subEl   = document.getElementById('resultSub');
+  const msgEl   = document.getElementById('resultMsg');
+  const giftEl  = document.getElementById('giftImg');
+
+  if (winner) {
+    titleEl.textContent  = 'WINNER!';
+    subEl.textContent    = 'RM 1,000,000';
+    subEl.style.display  = '';
+    msgEl.innerHTML      = 'Claim your gift<br>at the registration counter.';
+    giftEl.style.display = '';
+    startConfetti();
+  } else {
+    titleEl.textContent  = 'SO CLOSE!';
+    subEl.style.display  = 'none';
+    msgEl.innerHTML      = 'Get back in line for<br>another try.';
+    giftEl.style.display = 'none';
+    stopConfetti();
+  }
+
+  showScreen('resultScreen');
+}
+
+/* ── HOME ─────────────────────────────────────── */
+homeBtn.addEventListener('click', () => {
+  stopConfetti();
+  readyBtn.disabled = false;
+  timerBox.classList.remove('urgent');
+  showScreen('startScreen');
+});
+
+/* ── CONFETTI ─────────────────────────────────── */
+const CONFETTI_COLORS = ['#e74c3c','#3498db','#2ecc71','#f1c40f','#9b59b6','#1abc9c','#e67e22','#ff69b4'];
+const confettiPieces = [];
+let confettiRunning = false, confettiRaf = null;
+
+function startConfetti() {
+  confettiCanvas.width  = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+  confettiPieces.length = 0;
+  for (let i = 0; i < 160; i++) {
+    confettiPieces.push({
+      x: Math.random() * confettiCanvas.width,
+      y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+      w: 8 + Math.random() * 8, h: 4 + Math.random() * 4,
+      angle: Math.random() * Math.PI * 2,
+      spin:  (Math.random() - .5) * .18,
+      vx:   (Math.random() - .5) * 2,
+      vy:    2 + Math.random() * 3,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]
+    });
+  }
+  confettiRunning = true;
+  drawConfetti();
+}
+
+function stopConfetti() {
+  confettiRunning = false;
+  if (confettiRaf) cancelAnimationFrame(confettiRaf);
+  confCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+}
+
+function drawConfetti() {
+  if (!confettiRunning) return;
+  confCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  const W = confettiCanvas.width, H = confettiCanvas.height;
+  confettiPieces.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.angle += p.spin;
+    if (p.y > H + 20) { p.y = -20; p.x = Math.random() * W; }
+    confCtx.save();
+    confCtx.translate(p.x, p.y);
+    confCtx.rotate(p.angle);
+    confCtx.fillStyle = p.color;
+    confCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    confCtx.restore();
+  });
+  confettiRaf = requestAnimationFrame(drawConfetti);
+}
+</script>
+</body>
+</html>
