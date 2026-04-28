@@ -16,6 +16,8 @@
     #startScreen .bg-cover { background-image: url("assets/start.webp"); }
     #startBtn { position: relative; z-index: 2; padding: 18px 64px; font-size: 1.5rem; font-weight: 800; border: none; border-radius: 50px; background: linear-gradient(135deg,#ffcc00,#ff8800); color: #111; cursor: pointer; box-shadow: 0 6px 24px #0008; letter-spacing: 1px; transition: transform .15s, box-shadow .15s; }
     #startBtn:hover { transform: translateY(-3px); }
+    #settingsLink { position: absolute; top: 16px; right: 18px; z-index: 10; font-size: 1.5rem; text-decoration: none; opacity: .55; filter: drop-shadow(0 1px 3px #000); transition: opacity .15s; }
+    #settingsLink:hover { opacity: 1; }
 
     /* GUIDE */
     #guideScreen { align-items: flex-end; justify-content: center; padding-bottom: 8vh; }
@@ -128,6 +130,7 @@
 <!-- ── START ──────────────────────────────────────── -->
 <div id="startScreen" class="screen active">
   <div class="bg-cover"></div>
+  <a id="settingsLink" href="settings.html" title="Settings">&#9881;&#65039;</a>
   <button id="startBtn">START</button>
 </div>
 
@@ -170,9 +173,14 @@
 
 <script>
 /* ── CONFIG ───────────────────────────────────── */
-const WIN_SCORE      = 500;   // score needed to win
-const GAME_DURATION  = 30;    // seconds
-const POINTS_PER_KEY = 10;    // score per keypress
+// Read admin-configured values from localStorage (set via settings.html)
+const _savedDuration      = parseInt(localStorage.getItem('trainer_game_duration'),   10);
+const _savedScorePerShake = parseInt(localStorage.getItem('trainer_score_per_shake'), 10);
+const _savedWinScore      = parseInt(localStorage.getItem('trainer_win_score'),       10);
+
+let WIN_SCORE      = (!isNaN(_savedWinScore)      && _savedWinScore > 0)      ? _savedWinScore      : 500;
+let GAME_DURATION  = (!isNaN(_savedDuration)      && _savedDuration > 0)      ? _savedDuration      : 30;
+let POINTS_PER_KEY = (!isNaN(_savedScorePerShake) && _savedScorePerShake > 0) ? _savedScorePerShake : 10;
 const SHAKE_DECAY    = 0.92;  // shake level decay per frame (~60fps)
 const MAX_SHAKE      = 10;    // max shake level
 
@@ -198,6 +206,9 @@ const scoreValEl       = document.getElementById('scoreVal');
 const progressBar      = document.getElementById('progressBar');
 const keyHint          = document.getElementById('keyHint');
 const treeEl           = document.getElementById('treeImg');
+
+// Set initial timer display from configured duration
+timerValEl.textContent = formatTime(GAME_DURATION);
 const treeCanvas       = document.getElementById('treeCanvas');
 const treeCtx          = treeCanvas.getContext('2d');
 const confettiCanvas   = document.getElementById('confettiCanvas');
@@ -243,6 +254,14 @@ function runCountdown() {
 
 /* ── GAME START ───────────────────────────────── */
 function startGame() {
+  // Re-read settings in case they changed since page load
+  const _dur = parseInt(localStorage.getItem('trainer_game_duration'),   10);
+  const _sps = parseInt(localStorage.getItem('trainer_score_per_shake'), 10);
+  const _win = parseInt(localStorage.getItem('trainer_win_score'),       10);
+  if(!isNaN(_dur) && _dur > 0)  GAME_DURATION  = _dur;
+  if(!isNaN(_sps) && _sps > 0)  POINTS_PER_KEY = _sps;
+  if(!isNaN(_win) && _win > 0)  WIN_SCORE      = _win;
+
   score = 0; timeLeft = GAME_DURATION; running = true;
   shakeLevel = 0;
 
@@ -351,8 +370,12 @@ function tickTimer() {
   if (timeLeft <= 0) endGame(false);
 }
 
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  return String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
 function updateTimer() {
-  timerValEl.textContent = '00:' + String(timeLeft).padStart(2, '0');
+  timerValEl.textContent = formatTime(timeLeft);
   if (timeLeft <= 10) timerBox.classList.add('urgent');
 }
 
@@ -387,7 +410,7 @@ function endGame(winner) {
 
   if (winner) {
     titleEl.textContent  = 'WINNER!';
-    subEl.textContent    = 'RM 1,000,000';
+    subEl.textContent    = 'RM ' + WIN_SCORE.toLocaleString();
     subEl.style.display  = '';
     msgEl.innerHTML      = 'Claim your gift<br>at the registration counter.';
     giftEl.style.display = '';

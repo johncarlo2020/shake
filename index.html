@@ -18,6 +18,8 @@
     #startScreen .bg-cover { background-image: url("assets/start.webp"); }
     #startBtn { position: relative; z-index: 2; padding: 18px 64px; font-size: 1.5rem; font-weight: 800; border: none; border-radius: 50px; background: linear-gradient(135deg,#ffcc00,#ff8800); color: #111; cursor: pointer; box-shadow: 0 6px 24px #0008; letter-spacing: 1px; transition: transform .15s, box-shadow .15s; }
     #startBtn:hover { transform: translateY(-3px); }
+    #settingsLink { position: absolute; top: 16px; right: 18px; z-index: 10; font-size: 1.5rem; text-decoration: none; opacity: .55; filter: drop-shadow(0 1px 3px #000); transition: opacity .15s; }
+    #settingsLink:hover { opacity: 1; }
 
     /* GUIDE */
     #guideScreen { align-items: flex-end; justify-content: center; padding-bottom: 8vh; }
@@ -90,6 +92,7 @@
 
 <div id="startScreen" class="screen active">
   <div class="bg-cover"></div>
+  <a id="settingsLink" href="settings.html" title="Settings">&#9881;&#65039;</a>
   <button id="startBtn">START</button>
 </div>
 
@@ -134,10 +137,17 @@ const MODEL_URL = (window.APP_CONFIG && window.APP_CONFIG.modelUrl)
   ? window.APP_CONFIG.modelUrl
   : 'https://teachablemachine.withgoogle.com/models/Ymi7JcSrL/';
 
-const WIN_SCORE = 1000000;
+// Read admin-configured values from localStorage (set via settings.html)
+const _savedDuration      = parseInt(localStorage.getItem('trainer_game_duration'),   10);
+const _savedScorePerShake = parseInt(localStorage.getItem('trainer_score_per_shake'), 10);
+const _savedWinScore      = parseInt(localStorage.getItem('trainer_win_score'),       10);
+
+const WIN_SCORE = (!isNaN(_savedWinScore) && _savedWinScore > 0) ? _savedWinScore : 1000000;
+let WIN_SCORE_CUR = WIN_SCORE;
 
 const CFG = {
-  GAME_DURATION:      30,
+  GAME_DURATION:      (!isNaN(_savedDuration)      && _savedDuration > 0)      ? _savedDuration      : 30,
+  SCORE_PER_SHAKE:    (!isNaN(_savedScorePerShake) && _savedScorePerShake > 0) ? _savedScorePerShake : 50000,
   DETECT_THRESHOLD:   0.75,
   SHAKE_DECAY:        0.86,
   SHAKE_SCALE:        0.20,
@@ -179,6 +189,9 @@ const floodCanvas     = document.getElementById('floodCanvas');
 const floodCtx        = floodCanvas.getContext('2d');
 const cashCanvas      = document.getElementById('cashCanvas');
 const cashCtx         = cashCanvas.getContext('2d');
+
+// Set initial timer display from configured duration
+timerValEl.textContent = formatTime(CFG.GAME_DURATION);
 
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -245,6 +258,14 @@ function resizeCanvases(){
 }
 
 function startGame(){
+  // Re-read settings in case they changed since page load
+  const _dur = parseInt(localStorage.getItem('trainer_game_duration'),   10);
+  const _sps = parseInt(localStorage.getItem('trainer_score_per_shake'), 10);
+  const _win = parseInt(localStorage.getItem('trainer_win_score'),       10);
+  if(!isNaN(_dur) && _dur > 0)  CFG.GAME_DURATION   = _dur;
+  if(!isNaN(_sps) && _sps > 0)  CFG.SCORE_PER_SHAKE = _sps;
+  WIN_SCORE_CUR = (!isNaN(_win) && _win > 0) ? _win : WIN_SCORE;
+
   score=0; timeLeft=CFG.GAME_DURATION;
   shakeIntensity=0; prevCenter=null;
   floodLevel=0; notes.length=0;
@@ -269,14 +290,18 @@ function tickTimer(){
   if(timeLeft<=0) endGame();
 }
 
+function formatTime(s){
+  const m=Math.floor(s/60);
+  return String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
 function updateTimer(){
-  timerValEl.textContent='00:'+String(timeLeft).padStart(2,'0');
+  timerValEl.textContent=formatTime(timeLeft);
   if(timeLeft<=10) timerBox.classList.add('urgent');
 }
 
 function updateScore(){
   houseScoreEl.textContent=score.toLocaleString();
-  if(running && score>=WIN_SCORE){ endGame(true); }
+  if(running && score>=WIN_SCORE_CUR){ endGame(true); }
 }
 
 async function gameLoop(){
@@ -335,7 +360,7 @@ function spawnNotes(intensity){
     x:Math.random()*(W-w), y:-h-Math.random()*200,
     vx:(Math.random()-0.5)*4*intensity, vy:2+Math.random()*3,
     angle:(Math.random()-0.5)*0.6, spin:(Math.random()-0.5)*0.04,
-    w,h, value:50000, landed:false
+    w,h, value:CFG.SCORE_PER_SHAKE, landed:false
   });
 }
 
@@ -439,7 +464,7 @@ function endGame(winner=false){
 
   if(winner){
     titleEl.textContent  = 'WINNER!';
-    subEl.textContent    = 'RM 1,000,000';
+    subEl.textContent    = 'RM ' + WIN_SCORE_CUR.toLocaleString();
     subEl.style.display  = '';
     msgEl.innerHTML      = 'Claim your gift<br>at the registration counter.';
     giftEl.style.display = '';

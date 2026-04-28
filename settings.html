@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Settings</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%;
+      font-family: "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #0d1b2a 0%, #1a3a6b 100%);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+
+    /* ── PIN overlay ── */
+    #pinOverlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: linear-gradient(135deg, #0d1b2a 0%, #1a3a6b 100%);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #pinCard {
+      background: #fff; border-radius: 20px;
+      padding: 40px 36px; width: min(340px, 92vw);
+      text-align: center; box-shadow: 0 12px 48px rgba(0,0,0,.4);
+    }
+    #pinCard h2 { font-size: 1.5rem; color: #1a3a6b; margin-bottom: 6px; }
+    #pinCard p  { font-size: .9rem; color: #666; margin-bottom: 24px; }
+    #pinDots {
+      display: flex; justify-content: center; gap: 14px; margin-bottom: 28px;
+    }
+    .pin-dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid #1a3a6b; background: transparent;
+      transition: background .15s;
+    }
+    .pin-dot.filled { background: #1a3a6b; }
+    #pinPad {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    }
+    .pin-key {
+      padding: 14px; font-size: 1.3rem; font-weight: 700;
+      border: 2px solid #e0e8f4; border-radius: 12px;
+      background: #f4f7fb; color: #1a3a6b;
+      cursor: pointer; transition: background .12s, transform .1s;
+      user-select: none;
+    }
+    .pin-key:hover  { background: #dde8f8; }
+    .pin-key:active { transform: scale(.95); }
+    .pin-key.wide   { grid-column: span 2; }
+    #pinError {
+      margin-top: 14px; color: #c62828; font-size: .88rem;
+      min-height: 1.2em;
+    }
+
+    /* ── Settings card ── */
+    #settingsCard {
+      background: #fff; border-radius: 20px;
+      padding: 36px 32px; width: min(480px, 96vw);
+      box-shadow: 0 12px 48px rgba(0,0,0,.4);
+      color: #222;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .card-header h1 { font-size: 1.5rem; color: #1a3a6b; font-weight: 900; }
+    .card-header span { font-size: 1.6rem; }
+
+    .field { margin-bottom: 22px; }
+    .field label {
+      display: block; font-size: .82rem; font-weight: 700;
+      color: #1a3a6b; text-transform: uppercase; letter-spacing: .8px;
+      margin-bottom: 8px;
+    }
+    .field-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .field input[type="number"] {
+      flex: 1; padding: 12px 16px; font-size: 1.1rem; font-weight: 600;
+      border: 2px solid #d0dff0; border-radius: 10px;
+      color: #1a3a6b; outline: none; transition: border-color .15s;
+      -moz-appearance: textfield;
+    }
+    .field input[type="number"]::-webkit-inner-spin-button,
+    .field input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .field input[type="number"]:focus { border-color: #1a56a0; }
+    .field .unit {
+      font-size: .9rem; color: #888; font-weight: 600; white-space: nowrap;
+    }
+    .field .hint {
+      margin-top: 5px; font-size: .78rem; color: #999;
+    }
+
+    .divider { border: none; border-top: 1px solid #e8eef8; margin: 24px 0; }
+
+    /* PIN change section */
+    .section-title {
+      font-size: .82rem; font-weight: 700; color: #1a3a6b;
+      text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px;
+    }
+    .pin-change-row {
+      display: flex; gap: 10px; align-items: center;
+    }
+    .pin-change-row input {
+      flex: 1; padding: 10px 14px; font-size: 1rem; font-weight: 600;
+      border: 2px solid #d0dff0; border-radius: 10px; color: #1a3a6b;
+      outline: none; letter-spacing: 4px; text-align: center;
+      transition: border-color .15s;
+    }
+    .pin-change-row input:focus { border-color: #1a56a0; }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 12px; margin-top: 28px; }
+    .btn {
+      flex: 1; padding: 14px; font-size: 1rem; font-weight: 800;
+      border: none; border-radius: 50px; cursor: pointer;
+      letter-spacing: .5px; transition: transform .12s, opacity .12s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: #1a56a0; color: #fff; box-shadow: 0 4px 16px rgba(26,86,160,.3); }
+    .btn-primary:hover { background: #1565c0; }
+    .btn-secondary { background: #e8eef8; color: #1a3a6b; }
+    .btn-secondary:hover { background: #d4e3f4; }
+
+    #saveMsg {
+      margin-top: 14px; text-align: center; font-size: .9rem;
+      font-weight: 700; color: #2e7d32; min-height: 1.2em;
+      transition: opacity .3s;
+    }
+    #saveMsg.error { color: #c62828; }
+  </style>
+</head>
+<body>
+
+<!-- PIN Gate -->
+<div id="pinOverlay">
+  <div id="pinCard">
+    <h2>&#128274; Admin Access</h2>
+    <p>Enter your 4-digit PIN to continue</p>
+    <div id="pinDots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div id="pinPad">
+      <button class="pin-key" data-v="1">1</button>
+      <button class="pin-key" data-v="2">2</button>
+      <button class="pin-key" data-v="3">3</button>
+      <button class="pin-key" data-v="4">4</button>
+      <button class="pin-key" data-v="5">5</button>
+      <button class="pin-key" data-v="6">6</button>
+      <button class="pin-key" data-v="7">7</button>
+      <button class="pin-key" data-v="8">8</button>
+      <button class="pin-key" data-v="9">9</button>
+      <button class="pin-key" data-v="del">&#9003;</button>
+      <button class="pin-key" data-v="0">0</button>
+      <button class="pin-key" data-v="ok">OK</button>
+    </div>
+    <div id="pinError"></div>
+  </div>
+</div>
+
+<!-- Settings Form -->
+<div id="settingsCard">
+  <div class="card-header">
+    <h1>&#9881; Game Settings</h1>
+    <span title="Back"><a href="#" onclick="history.back(); return false;" style="text-decoration:none;">&#127968;</a></span>
+  </div>
+
+  <div class="field">
+    <label>Game Timer</label>
+    <div class="field-row">
+      <input type="number" id="gameDuration" min="5" max="300" step="1" value="30" />
+      <span class="unit">seconds</span>
+    </div>
+    <div class="hint">How long each round lasts (5 – 300 s). Default: 30 s</div>
+  </div>
+
+  <div class="field">
+    <label>Score Per Shake</label>
+    <div class="field-row">
+      <input type="number" id="scorePerShake" min="1000" max="1000000" step="1000" value="50000" />
+      <span class="unit">RM</span>
+    </div>
+    <div class="hint">Points awarded for each shake. Default: 50,000</div>
+  </div>
+
+  <div class="field">
+    <label>Win Score Target</label>
+    <div class="field-row">
+      <input type="number" id="winScore" min="10000" max="100000000" step="10000" value="1000000" />
+      <span class="unit">RM</span>
+    </div>
+    <div class="hint">Score needed to win the game. Default: 1,000,000</div>
+  </div>
+
+  <hr class="divider" />
+
+  <div class="section-title">Change PIN</div>
+  <div class="pin-change-row">
+    <input type="password" id="newPin" maxlength="4" placeholder="New PIN" inputmode="numeric" pattern="\d{4}" />
+    <input type="password" id="confirmPin" maxlength="4" placeholder="Confirm PIN" inputmode="numeric" pattern="\d{4}" />
+  </div>
+  <div class="hint" style="margin-top:6px;">Leave blank to keep current PIN</div>
+
+  <div class="btn-row">
+    <button type="button" class="btn btn-secondary" onclick="history.back()">Back</button>
+    <button class="btn btn-primary" id="saveBtn">Save Settings</button>
+  </div>
+  <div id="saveMsg"></div>
+</div>
+
+<script>
+  const STORAGE_KEYS = {
+    duration:      'trainer_game_duration',
+    scorePerShake: 'trainer_score_per_shake',
+    winScore:      'trainer_win_score',
+    pin:           'trainer_admin_pin',
+  };
+  const DEFAULT_PIN = '1234';
+
+  // ── PIN logic ──────────────────────────────────────────────
+  const pinOverlay = document.getElementById('pinOverlay');
+  const pinError   = document.getElementById('pinError');
+  const dots       = [0,1,2,3].map(i => document.getElementById('d'+i));
+  let pinBuffer = '';
+
+  function updateDots(){
+    dots.forEach((d,i) => d.classList.toggle('filled', i < pinBuffer.length));
+  }
+
+  function shakeCard(){
+    const card = document.getElementById('pinCard');
+    card.style.transition = 'transform .07s';
+    const frames = ['-8px','8px','-6px','6px','0px'];
+    let i = 0;
+    function next(){
+      card.style.transform = 'translateX('+frames[i]+')';
+      i++;
+      if(i < frames.length) setTimeout(next, 70); else card.style.transform='';
+    }
+    next();
+  }
+
+  document.querySelectorAll('.pin-key').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.v;
+      if(v === 'del'){
+        pinBuffer = pinBuffer.slice(0,-1);
+        pinError.textContent = '';
+      } else if(v === 'ok'){
+        checkPin();
+      } else {
+        if(pinBuffer.length < 4) pinBuffer += v;
+        if(pinBuffer.length === 4) setTimeout(checkPin, 120);
+      }
+      updateDots();
+    });
+  });
+
+  function checkPin(){
+    const stored = localStorage.getItem(STORAGE_KEYS.pin) || DEFAULT_PIN;
+    if(pinBuffer === stored){
+      pinOverlay.style.display = 'none';
+      loadSettings();
+    } else {
+      pinError.textContent = 'Incorrect PIN. Try again.';
+      pinBuffer = '';
+      updateDots();
+      shakeCard();
+    }
+  }
+
+  // ── Settings load / save ───────────────────────────────────
+  function loadSettings(){
+    const dur   = localStorage.getItem(STORAGE_KEYS.duration);
+    const sps   = localStorage.getItem(STORAGE_KEYS.scorePerShake);
+    const win   = localStorage.getItem(STORAGE_KEYS.winScore);
+    if(dur  !== null) document.getElementById('gameDuration').value  = dur;
+    if(sps  !== null) document.getElementById('scorePerShake').value = sps;
+    if(win  !== null) document.getElementById('winScore').value      = win;
+  }
+
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    const msgEl = document.getElementById('saveMsg');
+    msgEl.className = '';
+
+    const dur = parseInt(document.getElementById('gameDuration').value, 10);
+    const sps = parseInt(document.getElementById('scorePerShake').value, 10);
+    const win = parseInt(document.getElementById('winScore').value, 10);
+    const np  = document.getElementById('newPin').value.trim();
+    const cp  = document.getElementById('confirmPin').value.trim();
+
+    // Validate
+    if(isNaN(dur) || dur < 5 || dur > 300){
+      msgEl.className = 'error';
+      msgEl.textContent = 'Timer must be between 5 and 300 seconds.';
+      return;
+    }
+    if(isNaN(sps) || sps < 1000){
+      msgEl.className = 'error';
+      msgEl.textContent = 'Score per shake must be at least 1,000.';
+      return;
+    }
+    if(isNaN(win) || win < sps){
+      msgEl.className = 'error';
+      msgEl.textContent = 'Win score must be greater than score per shake.';
+      return;
+    }
+    if(np !== ''){
+      if(!/^\d{4}$/.test(np)){
+        msgEl.className = 'error';
+        msgEl.textContent = 'PIN must be exactly 4 digits.';
+        return;
+      }
+      if(np !== cp){
+        msgEl.className = 'error';
+        msgEl.textContent = 'PINs do not match.';
+        return;
+      }
+      localStorage.setItem(STORAGE_KEYS.pin, np);
+      document.getElementById('newPin').value    = '';
+      document.getElementById('confirmPin').value = '';
+    }
+
+    localStorage.setItem(STORAGE_KEYS.duration,      dur);
+    localStorage.setItem(STORAGE_KEYS.scorePerShake, sps);
+    localStorage.setItem(STORAGE_KEYS.winScore,      win);
+
+    msgEl.textContent = '✓ Settings saved!';
+    setTimeout(()=>{ msgEl.textContent=''; }, 3000);
+  });
+</script>
+</body>
+</html>
