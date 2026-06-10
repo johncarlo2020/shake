@@ -42,10 +42,49 @@
     #houseScore { position: absolute; bottom: 5.5%; left: 50%; transform: translateX(-50%); z-index: 5; pointer-events: none; text-align: center; font-size: clamp(1.6rem,4.5vw,2.8rem); font-weight: 900; color: #1a3a6b; letter-spacing: 2px; text-shadow: 0 1px 0 #fff8; }
     #floodCanvas { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
     #cashCanvas  { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-    #hud { position: absolute; top: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; pointer-events: none; }
-    #timerBox { display: flex; align-items: center; gap: 8px; background: #1565c0; color: #fff; font-size: 1.3rem; font-weight: 800; padding: 8px 20px; border-radius: 30px; box-shadow: 0 4px 14px #0007; letter-spacing: 1px; }
-    #timerBox.urgent { background: #c62828; animation: pulse .4s infinite alternate; }
+    #hud {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+      display: flex; align-items: flex-start; justify-content: center;
+      gap: 14px; padding: 14px 12px; pointer-events: none;
+    }
+    .hudCard {
+      color: #fff; background: linear-gradient(180deg,#2f67bb 0%,#2a5ca7 100%);
+      border: 2px solid rgba(255,255,255,.95); border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.22); overflow: hidden;
+    }
+    #shakeCard {
+      width: min(210px, 52vw); min-height: 74px; padding: 8px 12px 10px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    #shakeTopRow, #timeTopRow {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+      line-height: 1;
+    }
+    .hudTitle {
+      display: flex; flex-direction: column; gap: 2px;
+      text-transform: uppercase; font-weight: 900; letter-spacing: .6px; font-size: 1.08rem;
+    }
+    .hudValue {
+      font-weight: 900; font-size: 1.2rem; line-height: 1; white-space: nowrap;
+    }
+    #shakeProgressTrack {
+      height: 10px; border-radius: 999px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,.95); background: rgba(255,255,255,.18);
+    }
+    #shakeProgressFill {
+      width: 0%; height: 100%; background: linear-gradient(90deg,#ffffff 0%,#dbe8ff 100%);
+      border-radius: inherit; transition: width .15s linear;
+    }
+    #timeCard {
+      width: min(150px, 36vw); min-height: 74px; padding: 9px 12px 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #timeInner {
+      display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1;
+    }
+    #timeCard.urgent { background: linear-gradient(180deg,#c62828 0%,#a61d1d 100%); animation: pulse .4s infinite alternate; }
     @keyframes pulse { to { opacity:.6; } }
+    .chipIcon { font-size: 1.25rem; line-height: 1; }
     .float-text { position: absolute; font-size: 1.2rem; font-weight: 900; color: #ffd700; text-shadow: 0 2px 8px #000; pointer-events: none; animation: floatUp 1.1s ease-out forwards; z-index: 20; }
     @keyframes floatUp { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-70px) scale(1.4)} }
 
@@ -111,7 +150,21 @@
   <div id="houseScore">0</div>
   <canvas id="cashCanvas"></canvas>
   <div id="hud">
-    <div id="timerBox">&#9203; <span id="timerVal">00:30</span></div>
+    <div id="shakeCard" class="hudCard">
+      <div id="shakeTopRow">
+        <div class="hudTitle">SHAKE</div>
+      </div>
+      <div id="shakeProgressTrack"><div id="shakeProgressFill"></div></div>
+    </div>
+    <div id="timeCard" class="hudCard">
+      <div id="timeInner">
+        <div id="timeTopRow">
+          <div class="chipIcon">&#9203;</div>
+          <div class="hudTitle">TIME</div>
+        </div>
+        <div class="hudValue" id="timerVal">00:30</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -173,8 +226,9 @@ const gameScreen      = document.getElementById('gameScreen');
 const startBtn        = document.getElementById('startBtn');
 const readyBtn        = document.getElementById('readyBtn');
 const timerValEl      = document.getElementById('timerVal');
-const timerBox        = document.getElementById('timerBox');
+const timeCardEl      = document.getElementById('timeCard');
 const houseScoreEl    = document.getElementById('houseScore');
+const shakeProgressEl = document.getElementById('shakeProgressFill');
 const floodCanvas     = document.getElementById('floodCanvas');
 
 // Set initial timer display from configured duration
@@ -231,10 +285,12 @@ function startGame(){
   floodLevel=0; notes.length=0;
   frameCounter=0; running=true;
   houseScoreEl.textContent='0';
+  updateProgressUI();
   document.addEventListener('keydown', onKeyPress);
   // Clear pile canvas
   pileCanvas.width=window.innerWidth;
   pileCanvas.height=window.innerHeight;
+  renderCashPile();
   updateScore(); updateTimer();
   showScreen('gameScreen');
   setTimeout(()=>{
@@ -257,12 +313,71 @@ function formatTime(s){
 }
 function updateTimer(){
   timerValEl.textContent=formatTime(timeLeft);
-  if(timeLeft<=10) timerBox.classList.add('urgent');
+  if(timeLeft<=10) timeCardEl.classList.add('urgent');
 }
 
 function updateScore(){
   houseScoreEl.textContent=score.toLocaleString();
+  updateProgressUI();
+  renderCashPile();
   if(running && score>=WIN_SCORE_CUR){ endGame(true); }
+}
+
+function updateProgressUI(){
+  const ratio = WIN_SCORE_CUR > 0 ? Math.min(score / WIN_SCORE_CUR, 1) : 0;
+  shakeProgressEl.style.width = (ratio * 100).toFixed(2) + '%';
+}
+
+function hashNoise(seed){
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function renderCashPile(){
+  const W = pileCanvas.width, H = pileCanvas.height;
+  pileCtx.clearRect(0,0,W,H);
+  if(W === 0 || H === 0 || WIN_SCORE_CUR <= 0) return;
+
+  const ratio = Math.min(score / WIN_SCORE_CUR, 1);
+  floodLevel = ratio;
+  if(ratio <= 0) return;
+
+  const filledHeight = Math.max(1, H * ratio);
+  const top = H - filledHeight;
+  const cellW = Math.max(88, Math.round(W / 11));
+  const cellH = Math.round(cellW * 0.62);
+  const cols = Math.ceil(W / cellW) + 2;
+  const rows = Math.ceil(filledHeight / cellH) + 2;
+  const safeTop = top + cellH * 0.5;
+  const safeBottom = H - cellH * 0.35;
+
+  for(let row=0; row<rows; row++){
+    for(let col=0; col<cols; col++){
+      const seed = row * 92821 + col * 6113 + Math.round(ratio * 1000);
+      const billScale = 0.82 + hashNoise(seed) * 0.5;
+      const w = cellW * billScale;
+      const h = cellH * billScale;
+      const x = col * cellW + hashNoise(seed + 1) * 26 - 13;
+      const y = Math.min(safeBottom, Math.max(safeTop, safeTop + row * cellH + hashNoise(seed + 2) * 18 - 9));
+      const angle = (hashNoise(seed + 3) - 0.5) * 1.8;
+
+      pileCtx.save();
+      pileCtx.translate(x, y);
+      pileCtx.rotate(angle);
+      if(cashImg.complete && cashImg.naturalWidth > 0){
+        pileCtx.drawImage(cashImg, -w/2, -h/2, w, h);
+      } else {
+        pileCtx.fillStyle = '#4caf50';
+        pileCtx.fillRect(-w/2, -h/2, w, h);
+        pileCtx.fillStyle = '#fff';
+        pileCtx.font = 'bold ' + Math.max(12, Math.round(h * 0.28)) + 'px monospace';
+        pileCtx.textAlign = 'center';
+        pileCtx.textBaseline = 'middle';
+        pileCtx.fillText('RM100', 0, 0);
+      }
+      pileCtx.restore();
+    }
+  }
 }
 
 function gameLoop(){
@@ -326,8 +441,8 @@ function addToPile(noteW, noteH){
 function drawFlood(){
   const W=floodCanvas.width, H=floodCanvas.height;
   floodCtx.clearRect(0,0,W,H);
-  if(floodLevel<=0) return;
-  // Blit the persistent pile canvas — no repeated tiling, just individual notes
+  if(score<=0) return;
+  // Blit the score-driven cash pile that grows with the target progress
   floodCtx.drawImage(pileCanvas,0,0);
 }
 
@@ -342,8 +457,6 @@ function drawNotes(){
     if(n.y+n.h>=groundY){
       n.landed=true;
       score+=n.value;
-      addToPile(n.w, n.h);          // draw this note into the pile
-      floodLevel=Math.min(floodLevel+CFG.FLOOD_RATE,1);
       updateScore();
       showFloatingText('+'+n.value, n.x+n.w/2, groundY-10);
       continue;
@@ -462,7 +575,7 @@ function drawConfetti(){
 document.getElementById('homeBtn').addEventListener('click',()=>{
   stopConfetti();
   readyBtn.disabled=false;
-  timerBox.classList.remove('urgent');
+  timeCardEl.classList.remove('urgent');
   showScreen('startScreen');
 });
 </script>
