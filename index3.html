@@ -224,6 +224,7 @@ const sfxLose = new Audio('assets/sfx/Shaking Tree Lose.mp3');
   a.preload = 'auto';
 });
 sfxBgm.loop = true;
+sfxBgm.autoplay = true;
 sfxBgm.volume = 0.45;
 sfxButton.volume = 0.6;
 sfxCountdown.volume = 0.62;
@@ -281,6 +282,12 @@ function stopResultSfx(){
   stopSfx(sfxLose);
 }
 
+function tryStartBgmOnLoad(){
+  startGameBgm();
+}
+
+window.addEventListener('load', tryStartBgmOnLoad, { once: true });
+
 // Offscreen canvas that accumulates landed notes as a persistent pile
 const pileCanvas=document.createElement('canvas');
 const pileCtx=pileCanvas.getContext('2d');
@@ -305,13 +312,13 @@ const cashCanvas      = document.getElementById('cashCanvas');
 const cashCtx         = cashCanvas.getContext('2d');
 
 function showScreen(id){
-  if(id !== 'gameScreen') stopGameBgm();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
 startBtn.addEventListener('click',()=>{
   playButtonSfx();
+  startGameBgm();
   showScreen('guideScreen');
 });
 
@@ -346,7 +353,6 @@ function resizeCanvases(){
 function startGame(){
   stopResultSfx();
   stopSfx(sfxCountdown);
-  stopGameBgm();
   // Re-read settings in case they changed since page load
   const _dur = parseInt(localStorage.getItem('trainer_game_duration'),   10);
   const _sps = parseInt(localStorage.getItem('trainer_score_per_shake'), 10);
@@ -369,7 +375,6 @@ function startGame(){
   renderCashPile();
   updateScore(); updateTimer();
   showScreen('gameScreen');
-  startGameBgm();
   setTimeout(()=>{
     resizeCanvases();
     window.addEventListener('resize',resizeCanvases);
@@ -524,10 +529,7 @@ function drawFlood(){
 }
 
 function drawNotes(){
-  if(!running){
-    stopGameBgm();
-    return;
-  }
+  if(!running) return;
 
   const W=cashCanvas.width, H=cashCanvas.height;
   cashCtx.clearRect(0,0,W,H);
@@ -543,10 +545,7 @@ function drawNotes(){
       playCatchMoneySfx();
       updateScore();
       showFloatingText('+'+n.value, n.x+n.w/2, groundY-10);
-      if(!running){
-        stopGameBgm();
-        return;
-      }
+      if(!running) return;
       continue;
     }
     hasFallingNotes = true;
@@ -571,10 +570,7 @@ function drawNotes(){
     }
   }
 
-  if(!running){
-    stopGameBgm();
-    return;
-  }
+  if(!running) return;
 }
 
 function showFloatingText(text,x,y){
@@ -674,12 +670,12 @@ function drawConfetti(){
 
 document.getElementById('homeBtn').addEventListener('click',()=>{
   playButtonSfx();
-  stopGameBgm();
   stopResultSfx();
   stopConfetti();
   readyBtn.disabled=false;
   timeCardEl.classList.remove('urgent');
   showScreen('startScreen');
+  startGameBgm();
 });
 </script>
 </body>
