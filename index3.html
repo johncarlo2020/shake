@@ -213,6 +213,37 @@ let shakeIntensity=0, frameCounter=0, floodLevel=0;
 const notes=[];
 
 const cashImg=new Image(); cashImg.src='assets/cash.webp';
+const moneyFallSfx = new Audio('assets/money.mp3');
+moneyFallSfx.loop = true;
+moneyFallSfx.volume = 0.6;
+let moneyFallSfxPlaying = false;
+let moneyFallPlayToken = 0;
+let audioCtx = null;
+
+function startMoneyFallSfx(){
+  if(moneyFallSfxPlaying) return;
+  moneyFallSfx.muted = false;
+  moneyFallSfx.loop = true;
+  moneyFallSfxPlaying = true;
+  const token = ++moneyFallPlayToken;
+  moneyFallSfx.currentTime = 0;
+  const playPromise = moneyFallSfx.play();
+  if(playPromise && typeof playPromise.then === 'function'){
+    playPromise.catch(()=>{
+      if(token === moneyFallPlayToken){
+        moneyFallSfxPlaying = false;
+      }
+    });
+  }
+}
+
+function stopMoneyFallSfx(){
+  moneyFallPlayToken++;
+  moneyFallSfxPlaying = false;
+  moneyFallSfx.muted = true;
+  moneyFallSfx.pause();
+  moneyFallSfx.currentTime = 0;
+}
 
 // Offscreen canvas that accumulates landed notes as a persistent pile
 const pileCanvas=document.createElement('canvas');
@@ -238,8 +269,49 @@ const cashCanvas      = document.getElementById('cashCanvas');
 const cashCtx         = cashCanvas.getContext('2d');
 
 function showScreen(id){
+  if(id !== 'gameScreen') stopMoneyFallSfx();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+}
+
+function getAudioCtx(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === 'suspended'){
+    audioCtx.resume().catch(()=>{});
+  }
+  return audioCtx;
+}
+
+function playTone(freq, duration, type='sine', volume=0.06){
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(volume, ctx.currentTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration + 0.02);
+}
+
+function playCountdownTick(){
+  playTone(880, 0.12, 'square', 0.05);
+}
+
+function playCountdownGo(){
+  playTone(740, 0.10, 'triangle', 0.06);
+  setTimeout(()=>playTone(988, 0.12, 'triangle', 0.07), 110);
+}
+
+function playWinFanfare(){
+  playTone(523.25, 0.14, 'triangle', 0.07);
+  setTimeout(()=>playTone(659.25, 0.14, 'triangle', 0.07), 140);
+  setTimeout(()=>playTone(783.99, 0.20, 'triangle', 0.08), 280);
 }
 
 startBtn.addEventListener('click',()=>showScreen('guideScreen'));
@@ -255,6 +327,8 @@ function runCountdown(){
   let i=0;
   function step(){
     countdownNumber.textContent=steps[i];
+    if(steps[i] === 'GO!') playCountdownGo();
+    else playCountdownTick();
     countdownNumber.style.animation='none';
     void countdownNumber.offsetHeight;
     countdownNumber.style.animation='';
@@ -271,6 +345,7 @@ function resizeCanvases(){
 }
 
 function startGame(){
+  stopMoneyFallSfx();
   // Re-read settings in case they changed since page load
   const _dur = parseInt(localStorage.getItem('trainer_game_duration'),   10);
   const _sps = parseInt(localStorage.getItem('trainer_score_per_shake'), 10);
@@ -326,6 +401,7 @@ function updateScore(){
 function updateProgressUI(){
   const ratio = WIN_SCORE_CUR > 0 ? Math.min(score / WIN_SCORE_CUR, 1) : 0;
   shakeProgressEl.style.width = (ratio * 100).toFixed(2) + '%';
+  if(ratio >= 1) stopMoneyFallSfx();
 }
 
 function hashNoise(seed){
@@ -447,9 +523,15 @@ function drawFlood(){
 }
 
 function drawNotes(){
+  if(!running){
+    stopMoneyFallSfx();
+    return;
+  }
+
   const W=cashCanvas.width, H=cashCanvas.height;
   cashCtx.clearRect(0,0,W,H);
   const groundY=H*0.92;
+  let hasFallingNotes = false;
   for(let i=notes.length-1;i>=0;i--){
     const n=notes[i];
     if(n.landed){notes.splice(i,1);continue;}
@@ -459,8 +541,13 @@ function drawNotes(){
       score+=n.value;
       updateScore();
       showFloatingText('+'+n.value, n.x+n.w/2, groundY-10);
+      if(!running){
+        stopMoneyFallSfx();
+        return;
+      }
       continue;
     }
+    hasFallingNotes = true;
     if(cashImg.complete&&cashImg.naturalWidth>0){
       cashCtx.save();
       cashCtx.translate(n.x+n.w/2,n.y+n.h/2);
@@ -481,6 +568,17 @@ function drawNotes(){
       cashCtx.restore();
     }
   }
+
+  if(!running){
+    stopMoneyFallSfx();
+    return;
+  }
+
+  if(hasFallingNotes && !moneyFallSfxPlaying){
+    startMoneyFallSfx();
+  } else if(!hasFallingNotes && moneyFallSfxPlaying){
+    stopMoneyFallSfx();
+  }
 }
 
 function showFloatingText(text,x,y){
@@ -492,8 +590,10 @@ function showFloatingText(text,x,y){
 }
 
 function endGame(winner=false){
+  stopMoneyFallSfx();
   if(!running) return;
   running=false;
+  notes.length = 0;
   clearInterval(timerInterval);
   window.removeEventListener('resize',resizeCanvases);
   document.removeEventListener('keydown', onKeyPress);
@@ -504,6 +604,7 @@ function endGame(winner=false){
   const giftEl  = document.getElementById('giftImg');
 
   if(winner){
+    playWinFanfare();
     titleEl.textContent  = 'WINNER!';
     subEl.textContent    = 'RM ' + WIN_SCORE_CUR.toLocaleString();
     subEl.style.display  = '';
@@ -573,6 +674,7 @@ function drawConfetti(){
 }
 
 document.getElementById('homeBtn').addEventListener('click',()=>{
+  stopMoneyFallSfx();
   stopConfetti();
   readyBtn.disabled=false;
   timeCardEl.classList.remove('urgent');
