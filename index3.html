@@ -14,19 +14,45 @@
     .bg-cover { position: absolute; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; }
 
     /* START */
-    #startScreen { align-items: flex-end; justify-content: center; padding-bottom: 8vh; }
+    #startScreen { align-items: flex-end; justify-content: center; padding-bottom: 75vh; }
     #startScreen .bg-cover { background-image: url("assets/start.webp"); }
-    #startBtn { position: relative; z-index: 2; padding: 18px 64px; font-size: 1.5rem; font-weight: 800; border: none; border-radius: 50px; background: linear-gradient(135deg,#ffcc00,#ff8800); color: #111; cursor: pointer; box-shadow: 0 6px 24px #0008; letter-spacing: 1px; transition: transform .15s, box-shadow .15s; }
-    #startBtn:hover { transform: translateY(-3px); }
+    #startBtn { position: relative; z-index: 2; width: min(420px, 92vw); padding: 20px 0; font-size: clamp(1.8rem, 6vw, 2.6rem); font-weight: 400; border: none; border-radius: 28px; background: #fff; color: #2b5fb1; cursor: pointer; box-shadow: 0 8px 22px rgba(0,0,0,.22); letter-spacing: 1px; transition: transform .15s, box-shadow .15s; }
+    #startBtn:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(0,0,0,.24); }
     #settingsLink { position: absolute; top: 16px; right: 18px; z-index: 10; font-size: 1.5rem; text-decoration: none; opacity: .55; filter: drop-shadow(0 1px 3px #000); transition: opacity .15s; }
     #settingsLink:hover { opacity: 1; }
 
     /* GUIDE */
-    #guideScreen { flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 8vh; }
+    #guideScreen { flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 75vh; }
     #guideScreen .bg-cover { background-image: url("assets/guide_tree.webp"); }
-    #guideTree { position: relative; z-index: 2; height: 42vh; max-width: 80vw; width: auto; margin-bottom: 20px; }
-    #readyBtn { position: relative; z-index: 2; padding: 18px 64px; font-size: 1.5rem; font-weight: 800; border: none; border-radius: 50px; background: linear-gradient(135deg,#00c853,#00897b); color: #fff; cursor: pointer; box-shadow: 0 6px 24px #0008; letter-spacing: 1px; transition: transform .15s; }
-    #readyBtn:hover { transform: translateY(-3px); }
+    #guideTree {
+      position: absolute;
+      z-index: 2;
+      left: 50%;
+      bottom: 7vh;
+      transform: translateX(-50%);
+      width: min(500px, 90vw);
+      max-height: 50vh;
+      height: auto;
+      margin: 0;
+      pointer-events: none;
+    }
+    #readyBtn {
+      position: relative;
+      z-index: 3;
+      width: min(420px, 92vw);
+      padding: 20px 0;
+      font-size: clamp(1.8rem, 6vw, 2.6rem);
+      font-weight: 400;
+      border: none;
+      border-radius: 28px;
+      background: #2f62b3;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(0,0,0,.18);
+      letter-spacing: .8px;
+      transition: transform .15s, box-shadow .15s, background .15s;
+    }
+    #readyBtn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,.2); background: #2a5aa7; }
     #readyBtn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 
     /* COUNTDOWN */
@@ -90,39 +116,80 @@
 
     /* RESULT SCREEN */
     #resultScreen {
-      flex-direction: column; align-items: center; justify-content: center;
-      background: linear-gradient(160deg,#c9d8f0 0%,#dce8f8 50%,#c9d8f0 100%);
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding-bottom: 75vh;
+      background: linear-gradient(180deg,#a9c2e7 0%,#c9dbef 55%,#edf6fb 100%);
       z-index: 300; overflow: hidden;
     }
     /* Confetti canvas */
     #confettiCanvas { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
     /* Logo */
-    #resultLogo { width: min(180px,44vw); margin-bottom: 24px; position: relative; z-index: 1; }
+    #resultLogo {
+      width: min(260px, 62vw);
+      position: absolute;
+      top: 7vh;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+    }
     /* Card */
     #resultCard {
-      position: relative; z-index: 1;
-      background: #fff;
+      position: absolute;
+      z-index: 1;
+      left: 50%;
+      top: 39vh;
+      transform: translateX(-50%);
+      background: rgba(227, 238, 251, .66);
+      border: 1px solid rgba(255,255,255,.55);
       border-radius: 24px;
-      box-shadow: 0 8px 40px rgba(0,0,0,.15);
-      padding: 36px 40px 32px;
-      width: min(360px, 88vw);
-      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      box-shadow: 0 12px 34px rgba(31,74,132,.2);
+      backdrop-filter: blur(3px);
+      padding: clamp(26px, 3.2vh, 56px) clamp(22px, 4.4vw, 54px);
+      width: min(860px, 78vw);
+      aspect-ratio: 1 / 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: clamp(8px, 1.4vh, 16px);
       text-align: center;
     }
-    #resultTitle   { font-size: clamp(2rem,7vw,3rem); font-weight: 900; color: #1a56a0; line-height: 1.1; }
-    #resultSub     { font-size: clamp(1rem,3.5vw,1.25rem); font-weight: 700; color: #1a56a0; }
-    #resultMsg     { font-size: clamp(.85rem,2.5vw,1rem); color: #555; line-height: 1.5; }
-    #giftImg       { width: min(130px,32vw); margin: 6px 0; }
+    #resultTitle   { font-size: clamp(2.2rem,7.2vw,3.3rem); font-weight: 900; color: #2d5fae; line-height: 1.1; }
+    #resultSub     { font-size: clamp(2rem,8vw,3.2rem); font-weight: 900; color: #2d5fae; line-height: 1; margin-top: -4px; }
+    #resultMsg     { font-size: clamp(1.55rem,4.8vw,2.2rem); color: #2d5fae; line-height: 1.3; font-weight: 500; margin-top: 6px; }
+    #giftImg       { width: min(182px, 42vw); margin: 8px 0; }
     #homeBtn {
-      margin-top: 8px; width: 100%;
-      padding: 16px 0; font-size: 1.1rem; font-weight: 800;
-      border: none; border-radius: 50px;
-      background: #1a56a0; color: #fff;
-      cursor: pointer; letter-spacing: 1px;
-      box-shadow: 0 4px 16px rgba(26,86,160,.35);
-      transition: transform .15s, background .15s;
+      position: relative;
+      z-index: 3;
+      width: min(420px, 92vw);
+      padding: 20px 0;
+      font-size: clamp(1.8rem, 6vw, 2.6rem);
+      font-weight: 400;
+      border: none;
+      border-radius: 28px;
+      background: #2f62b3;
+      color: #fff;
+      cursor: pointer;
+      letter-spacing: 1px;
+      box-shadow: 0 8px 18px rgba(0,0,0,.18);
+      transition: transform .15s, box-shadow .15s, background .15s;
     }
-    #homeBtn:hover { background: #1565c0; transform: translateY(-2px); }
+    #homeBtn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,.2); background: #2a5aa7; }
+
+    /* Failed attempt layout */
+    #resultScreen.is-fail #resultCard {
+      top: 34vh;
+      width: min(860px, 84vw);
+      justify-content: center;
+      gap: clamp(18px, 2.4vh, 36px);
+    }
+    #resultScreen.is-fail #resultTitle {
+      font-size: clamp(2.8rem, 8vw, 4.2rem);
+      margin-top: 0;
+    }
+    #resultScreen.is-fail #resultMsg {
+      font-size: clamp(1.95rem, 5.5vw, 2.8rem);
+      line-height: 1.18;
+      margin-top: 0;
+    }
   </style>
 </head>
 <body>
@@ -171,12 +238,12 @@
 <div id="resultScreen" class="screen">
   <canvas id="confettiCanvas"></canvas>
   <img id="resultLogo" src="assets/logo.webp" alt="iProperty" />
+  <button id="homeBtn">HOME</button>
   <div id="resultCard">
     <div id="resultTitle">WINNER!</div>
     <div id="resultSub">RM 1,000,000</div>
     <img id="giftImg" src="assets/gift.webp" alt="gift" />
     <div id="resultMsg">Claim your gift<br>at the registration counter.</div>
-    <button id="homeBtn">HOME</button>
   </div>
 </div>
 
@@ -297,6 +364,7 @@ const guideScreen     = document.getElementById('guideScreen');
 const countdownOverlay= document.getElementById('countdownOverlay');
 const countdownNumber = document.getElementById('countdownNumber');
 const gameScreen      = document.getElementById('gameScreen');
+const resultScreen    = document.getElementById('resultScreen');
 const startBtn        = document.getElementById('startBtn');
 const readyBtn        = document.getElementById('readyBtn');
 const timerValEl      = document.getElementById('timerVal');
@@ -598,6 +666,7 @@ function endGame(winner=false){
   if(winner){
     stopSfx(sfxLose);
     playSfx(sfxWin);
+    resultScreen.classList.remove('is-fail');
     titleEl.textContent  = 'WINNER!';
     subEl.textContent    = 'RM ' + WIN_SCORE_CUR.toLocaleString();
     subEl.style.display  = '';
@@ -607,6 +676,7 @@ function endGame(winner=false){
   } else {
     stopSfx(sfxWin);
     playSfx(sfxLose);
+    resultScreen.classList.add('is-fail');
     titleEl.textContent  = 'SO CLOSE!';
     subEl.style.display  = 'none';
     msgEl.innerHTML      = 'Get back in line for<br>another try.';
